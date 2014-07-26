@@ -1,0 +1,58 @@
+Analysis of Activity Data
+=========================
+
+The training data was loaded into R and some data-cleansing was performed. Firstly all records containing 'N/A' were removed (by identifying those in the first row). The test data set was opened in Excel and columns of missing data were identified. The training data was further reduced down to those predictors which were present in both data sets:
+```{r}
+data<-read.csv("pml-training.csv")
+dataclean<-data[,!is.na(data[1,])]
+dataclean<-(dataclean[,c(2,8:11,21:42,49:51,61:73,83:93)])
+```
+
+
+The data set was then split into two: a training set composing of approximately 60% of the total 19622 records; the remaining 7622 records into a set to be used for cross-validation.
+
+```{r}
+train = sample(1:dim(dataclean)[1],size=12000,replace=F)
+trainData = dataclean[train,]
+validData = dataclean[-train,]
+```
+
+These both still contained a possible 53 predictor variables. In order, to identify those variables which might have most influence, an analysis of near zero variable predictors was performed.
+
+```{r}
+library("caret", lib.loc="C:/Users/crokm/Documents/R/win-library/3.1")
+var<-nearZeroVar(trainData[,2:53], saveMetrics=TRUE)
+var
+```
+
+The results suggest that there may be some benefit from including roll, pitch and yaw variables for the four accelerometers. We performed a random forest analysis using them via:
+
+```{r}
+model<-train(classe~roll_belt+pitch_belt+yaw_belt+roll_arm+pitch_arm+yaw_arm+roll_dumbbell+pitch_dumbbell+yaw_dumbbell+roll_forearm+pitch_forearm+yaw_forearm, method="rf", data=trainData)
+```
+and used the model generated to predict the classe to compare with actual values. For the training dataset, the following results were obtained:
+
+```{r}
+predTrain=predict(model,trainData)
+confusionMatrix(predTrain,trainData$classe)
+```
+
+This shows 100% accuracy on the training data. To check against over-fitting, we perform the same check on the cross-validation dataset:
+
+```{r}
+predValid=predict(model,validData)
+confusionMatrix(predValid,validData$classe)
+```
+
+As expected, the model does not perform as well as on the training data set, but still achieves a 98% accuracy which we judge to be sufficient to proceed to analyse the test data set:
+
+```{r}
+datatest<-read.csv("pml-testing.csv")
+predTest = predict(model,datatest)
+predTest
+```
+
+These have been submitted separately and have proved to be correct.
+
+
+
